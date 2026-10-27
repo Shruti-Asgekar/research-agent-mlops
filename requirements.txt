@@ -1,0 +1,5 @@
+streamlit==1.66.1
+ddgs==9.16.1
+langchain-openai==0.3.35
+langchain-core==0.3.86
+openai==2.54.0

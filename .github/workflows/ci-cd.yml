@@ -1,0 +1,50 @@
+name: CI-CD
+
+on:
+  push:            # runs on every push
+
+jobs:
+  ci:
+    name: Continuous Integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest
+
+      - name: Syntax check
+        run: python -m py_compile agent.py app.py
+
+      - name: Run automated tests
+        run: pytest -v
+
+      - name: Build Docker image
+        run: docker build -t research-agent:${{ github.sha }} .
+
+  deploy:
+    name: Continuous Deployment (Hugging Face Space)
+    needs: ci
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_USERNAME: ${{ secrets.HF_USERNAME }}
+          HF_SPACE: ${{ secrets.HF_SPACE }}
+        run: |
+          if [ -z "$HF_TOKEN" ] || [ -z "$HF_USERNAME" ] || [ -z "$HF_SPACE" ]; then
+            echo "HF_TOKEN / HF_USERNAME / HF_SPACE secrets are not set - skipping deploy."
+            exit 0
+          fi
+          git push --force "https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/spaces/${HF_USERNAME}/${HF_SPACE}" HEAD:main
